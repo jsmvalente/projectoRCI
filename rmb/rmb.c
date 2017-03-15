@@ -11,6 +11,7 @@
 
 #define BUFFERSIZE 1024
 #define MAXIMUM_MESSAGE_SIZE 140
+#define NUMBER_OF_SERVER_TRIES 2
 
 int main(int argc, char *argv[]) {
     
@@ -20,7 +21,7 @@ int main(int argc, char *argv[]) {
     struct hostent *hostptr;
     char input_buffer[BUFFERSIZE], *message, *n_string, *server_list_buffer, *messages_list;
     ServerListNode * server_list_head = NULL;
-    struct sockaddr_in id_serveraddr, message_serveraddr;
+    struct sockaddr_in id_serveraddr;
     
     //Wait up to five seconds.
     tv.tv_sec = 5;
@@ -31,7 +32,6 @@ int main(int argc, char *argv[]) {
     
     //Default IP Port
     int sipt = 59000;
-    
     
     //Check if the user used the right number of arguments
     if(argc > 5)
@@ -220,14 +220,12 @@ int main(int argc, char *argv[]) {
                                     }
                                     else
                                     {
-                                        waiting_messages = n;
+                                        //Made the first try to contact the server
+                                        waiting_messages = 1;
                                     }
                                 }
                                 else
                                 {
-                                    //Reset the waiting_messages parameter
-                                    waiting_messages = -1;
-                                    
                                     printf("No message servers available. Type 'show_servers' to update the server list\n");
                                 }
                             }
@@ -269,11 +267,8 @@ int main(int argc, char *argv[]) {
                 //Reset the waiting for new messages flag
                 waiting_messages = -1;
                 
-                //Dynamically allocate a string
-                server_list_buffer = (char*)malloc(BUFFERSIZE);
-                
                 //Receive the buffer from the server
-                if(ReceiveServerList(id_fd, id_serveraddr, server_list_buffer) != -1)
+                if((server_list_buffer = ReceiveServerList(id_fd, id_serveraddr)) != NULL)
                 {
                     printf("%s\n", server_list_buffer);
                     
@@ -281,7 +276,7 @@ int main(int argc, char *argv[]) {
                     FreeServerList(server_list_head);
                     
                     //Create a new server list with the information we got from the identity server
-                    CreateServerList(server_list_head, server_list_buffer);
+                    server_list_head = CreateServerList(server_list_buffer);
                 
                     free(server_list_buffer);
                 }
@@ -294,11 +289,8 @@ int main(int argc, char *argv[]) {
             //If there is new info arriving in the msg socket
             else if (FD_ISSET(msg_fd, &rfds))
             {
-                //Dynamically allocate a string
-                messages_list = (char*)malloc(BUFFERSIZE);
-                
                 //Receive the buffer from the server
-                if(ReceiveMessagesFromServer(msg_fd, server_list_head, messages_list) != -1)
+                if((messages_list = ReceiveMessagesFromServer(msg_fd, server_list_head)) != NULL)
                 {
                     printf("%s\n", messages_list);
                     
@@ -320,18 +312,39 @@ int main(int argc, char *argv[]) {
             //We are waiting fpr the swever to send us the last n messages
             if(waiting_messages != -1)
             {
-                printf("No data within five seconds, changing messages server\n");
-                
-                ChangeDefaultServer(server_list_head);
-                
-                //Try to get the messages again the the new default server
-                if(RequestMessagesFromServer(msg_fd, server_list_head, n) == -1)
+                //We only change message server after trying to contact the server twice
+                if(waiting_messages == NUMBER_OF_SERVER_TRIES)
                 {
-                    printf("Error getting messages\n");
+                    server_list_head = ChangeDefaultServer(server_list_head);
+                    
+                    //Reset the number of attempts
+                    waiting_messages = 0;
+                    
+                    printf("Server not responding, changing messages server\n");
                 }
+                
+                //Try to get the messages again the the new default server if we haven't runned out of servers
+                if(server_list_head != NULL)
+                {
+                    if(RequestMessagesFromServer(msg_fd, server_list_head, n) == -1)
+                    {
+                        printf("Error getting messages\n");
+                    }
+                    else
+                    {
+                        if(waiting_messages > 0)
+                            printf("Contacting server again...\n");
+                        
+                        //Increase the number of attempts
+                        waiting_messages++;
+                    }
+                }
+                //Resest the waiting_messages flag
                 else
                 {
-                    printf("Trying to get your messages with a new message server");
+                    printf("No message servers available. Type 'show_servers' to update the server list\n");
+                    
+                    waiting_messages = -1;
                 }
             }
         }

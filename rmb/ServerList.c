@@ -70,22 +70,29 @@ ServerListNode* AddNodeToListHead(ServerListNode *head, char *name, char *ip, in
 }
 
 //Puts a random server into the head of the list, that will be the default server
-void ChooseActiveServerRandomly(ServerListNode *head, int number_servers)
+ServerListNode * ChooseActiveServerRandomly(ServerListNode *head, int number_servers)
 {
-    int default_server, i;
+    int default_server, i = 0;
     ServerListNode * aux_prev = NULL, *aux=head;
     
     //Initialize random seed
     srand(time(0));
     
-    //Get random number between 0 and number_servers - 1
-    default_server = number_servers % rand();
-    
-    if(default_server == 0)
-        return;
+    if(number_servers != 0)
+    {
+        //Get random number between 0 and number_servers - 1
+        default_server = rand() % number_servers;
+    }
     else
     {
-        for(i = 0; i == default_server; i++)
+        return head;
+    }
+    
+    if(default_server == 0)
+        return head;
+    else
+    {
+        for(i = 0; i != default_server; i++)
         {
             aux_prev = aux;
             aux = aux->next;
@@ -96,25 +103,28 @@ void ChooseActiveServerRandomly(ServerListNode *head, int number_servers)
         aux->next = head;
         head = aux;
     }
+    
+    return head;
 }
 
 //Create a new server list we information from the server
-int CreateServerList(ServerListNode *head, char* server_list)
+ServerListNode * CreateServerList(char* server_list)
 {
     //The server list string will come in the following format: 'SERVERS\n(name;ip;upt;tpt\n)*\n'
     
     char *servers_to_add, *name, *ip, *upt, *tpt;
     int counter = 0;
     int servers = 0;
+    ServerListNode * head = NULL;
     
     //If there are are servers to add
-    if(server_list[8] != '\0')
+    if(strcmp(server_list, "SERVERS\n") != 0)
     {
         //Get a new pointer to the beggining of the server list
         servers_to_add = server_list + 8;
         
         //While we still have servers to add to the list
-        while (strlen(servers_to_add) > 0)
+        while (strlen(servers_to_add) > 1)
         {
             //Increase the number of servers
             servers += 1;
@@ -204,17 +214,20 @@ int CreateServerList(ServerListNode *head, char* server_list)
             counter = 0;
             
             //Add the node to the server list
-            AddNodeToListHead(head, name, ip, atoi(upt), atoi(tpt));
+            head = AddNodeToListHead(head, name, ip, atoi(upt), atoi(tpt));
+            
+            free(tpt);
+            free(upt);
         }
         
-        ChooseActiveServerRandomly(head, servers);
+        head = ChooseActiveServerRandomly(head, servers);
     }
     else
     {
         head = NULL;
     }
     
-    return 1;
+    return head;
 }
 
 //Frees a server list
@@ -241,7 +254,7 @@ void FreeServerList(ServerListNode *head)
 }
 
 //Changes default server by deleting the head node
-void ChangeDefaultServer(ServerListNode *head)
+ServerListNode * ChangeDefaultServer(ServerListNode *head)
 {
     ServerListNode* aux = head;
     
@@ -254,5 +267,5 @@ void ChangeDefaultServer(ServerListNode *head)
     
     free(aux);
 
-    return;
+    return head;
 }

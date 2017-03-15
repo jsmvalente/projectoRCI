@@ -15,8 +15,8 @@
 
 typedef struct serverlistnode ServerListNode;
 ServerListNode* AddNodeToListHead(ServerListNode *head, char *name, char *ip, int upt, int tpt);
-int CreateServerList(ServerListNode *head, char* server_list);
+ServerListNode * CreateServerList(char* server_list);
 int GetUDPPortFromNode(ServerListNode *node);
 char* GetUDPIPFromNode(ServerListNode *node);
 void FreeServerList(ServerListNode *head);
-void ChangeDefaultServer(ServerListNode *head);
+ServerListNode * ChangeDefaultServer(ServerListNode *head);

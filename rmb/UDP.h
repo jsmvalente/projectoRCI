@@ -15,5 +15,5 @@
 
 int RequestServerList(int fd, struct sockaddr_in serveraddr);
 int CreateSocket();
-int ReceiveServerList(int fd, struct sockaddr_in serveraddr, char* buffer);
+char* ReceiveServerList(int fd, struct sockaddr_in serveraddr);
 struct sockaddr_in SetupIDServerAddress(char * id_server_ip, int id_server_port);

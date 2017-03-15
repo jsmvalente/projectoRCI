@@ -51,25 +51,30 @@ int SendMessageToServer(int fd, ServerListNode * head, char* message)
 //Resquests that the server sends the last number_messages messages
 int RequestMessagesFromServer(int msg_fd, ServerListNode * head, int number_messages)
 {
-    int addrlen;
+    int addrlen, ret, port;
     struct sockaddr_in serveraddr;
-    char relay[100], nmessages_string[87];
+    char relay[100], nmessages_string[87], *ip;
+    
+    //Get IP and port
+    ip = GetUDPIPFromNode(head);
+    port = GetUDPPortFromNode(head);
     
     memset((void*)&serveraddr,(int) '\0', sizeof(serveraddr));
     
+    //Setup the server address
     serveraddr.sin_family = AF_INET;
-    inet_aton(GetUDPIPFromNode(head), &serveraddr.sin_addr);
-    serveraddr.sin_port = htons((u_short)GetUDPPortFromNode(head));
+    serveraddr.sin_addr.s_addr = ((struct in_addr *)ip)->s_addr;
+    serveraddr.sin_port = htons((u_short)port);
     
     addrlen = sizeof(serveraddr);
     
     //Get the message we have to realy oto the server into the "relay" string
-    strcpy(relay,  "GET_MESSAGES ");
+    strcpy(relay, "GET_MESSAGES ");
     sprintf(nmessages_string, "%d", number_messages);
     strcat(relay, nmessages_string);
     
     //Send the message to the server
-    sendto(msg_fd, relay, strlen(relay)+1, 0, (struct sockaddr*)&serveraddr,addrlen);
+    ret = sendto(msg_fd, relay, strlen(relay)+1, 0, (struct sockaddr*)&serveraddr,addrlen);
     
     return 1;
 }
@@ -91,7 +96,7 @@ struct sockaddr_in SetupIDServerAddress(char * id_server_ip, int id_server_port)
 int RequestServerList(int fd, struct sockaddr_in serveraddr)
 {
     int addrlen;
-    char *msg = "GET_SERVERS", buffer[1024];
+    char *msg = "GET_SERVERS";
     
     //Get the lenght of the address
     addrlen = sizeof(serveraddr);
@@ -104,9 +109,13 @@ int RequestServerList(int fd, struct sockaddr_in serveraddr)
 }
 
 //Receives the buffer from the server
-int ReceiveServerList(int fd, struct sockaddr_in serveraddr, char* buffer)
+char* ReceiveServerList(int fd, struct sockaddr_in serveraddr)
 {
     int addrlen, ret;
+    
+    char buffer[1024];
+    //Dynamically allocate a string
+    char * ret_string = (char*)malloc(sizeof(char)*1024);
 
     //Get the lenght of the address
     addrlen = sizeof(serveraddr);
@@ -117,17 +126,29 @@ int ReceiveServerList(int fd, struct sockaddr_in serveraddr, char* buffer)
     {
         printf("Error receiving data from server\n");
         perror("");
-        return -1;
+        return NULL;
+    }
+    else
+    {
+        //Copy the contents from the server to the allocated strings
+        strncpy(ret_string, buffer, ret);
+        
+        //Make sure the string is ended
+        ret_string[ret] = '\0';
     }
     
-    return 1;
+    return ret_string;
 }
 
 //Receives the buffer from the server
-int ReceiveMessagesFromServer(int fd, ServerListNode * head, char* buffer)
+char* ReceiveMessagesFromServer(int fd, ServerListNode * head)
 {
     int addrlen, ret;
     struct sockaddr_in serveraddr;
+    
+    char buffer[1024];
+    //Dynamically allocate a string
+    char * ret_string = (char*)malloc(sizeof(char)*1024);
     
     memset((void*)&serveraddr,(int) '\0', sizeof(serveraddr));
     
@@ -143,8 +164,8 @@ int ReceiveMessagesFromServer(int fd, ServerListNode * head, char* buffer)
     {
         printf("Error receiving data from server\n");
         perror("");
-        return -1;
+        return NULL;
     }
     
-    return 1;
+    return ret_string;
 }
