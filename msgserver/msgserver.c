@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <time.h>
 
 #include "user_functions.h"
 #include "message_functions.h"
@@ -19,15 +20,22 @@
 
 int main(int argc, char *argv[])
 {
-  int n_messages, int_reg, fd_id, addrlen, n, select_ret_val, maxfd, id_socket=0, print_message=0;
-  char *server_name, *ip_address, *udp_port, *tcp_port, *id_serverip, *id_serverport;
-  char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR];
+  int udp_port, n_messages, int_reg, fd_id, fd_client, addrlen, n, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0;
+  double t;
+  char *server_name, *ip_address, *tcp_port, *id_serverip, *id_serverport;
+  char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR]="\0";
   struct hostent *hostptr;
-  struct sockaddr_in serveraddr, clientaddr;
+  struct sockaddr_in serveraddr, clientaddr, myserveraddr;
+  struct timespec before, now;
   fd_set rfds;
+  MESSAGE *msg;
+
+  clock_gettime(CLOCK_REALTIME, &before);
 
   //Collects the arguments to the corresponding variable.
   get_arguments(argc, argv, &server_name, &ip_address, &udp_port, &tcp_port, &id_serverip, &id_serverport, &n_messages, &int_reg);
+
+  msg = (MESSAGE*) malloc((sizeof(MESSAGE) * n_messages) +1);
 
   //Registration message.
   strcpy(reg_message, "REG ");
@@ -35,7 +43,8 @@ int main(int argc, char *argv[])
   strcat(reg_message, ";");
   strcat(reg_message, ip_address);
   strcat(reg_message, ";");
-  strcat(reg_message, udp_port);
+  sprintf(buffer, "%d", udp_port);
+  strcat(reg_message, buffer);
   strcat(reg_message, ";");
   strcat(reg_message, tcp_port);
 
@@ -58,11 +67,39 @@ int main(int argc, char *argv[])
   serveraddr.sin_addr.s_addr = ((struct in_addr *)(hostptr->h_addr_list[0]))->s_addr;
   serveraddr.sin_port = htons((u_short)PORT);
 
-  printf("MSGSERVER\nPor favor, escolha uma das seguintes operações e pressione 'enter':\n1-'join'\n2-'show_servers'\n3-'show_messages'\n4-'exit'\n");
+  //File descriptor UDP server.
+  fd_client = socket(AF_INET, SOCK_DGRAM, 0);
+  if(fd_client == -1)
+  {
+    exit(-1);
+  }
 
+  memset((void*)&myserveraddr,(int) '\0', sizeof(myserveraddr));
+
+  myserveraddr.sin_family = AF_INET;
+  myserveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  myserveraddr.sin_port = htons((u_short)udp_port);
+
+  bind(fd_client, (struct sockaddr*) &myserveraddr, sizeof(myserveraddr));
+
+  printf("MSGSERVER\nPor favor, escolha uma das seguintes operações e pressione 'enter':\n1-'join'\n2-'show_servers'\n3-'show_messages'\n4-'exit'\n");
 
   while(1)
    {
+     clock_gettime(CLOCK_REALTIME, &now);
+     t = now.tv_sec - before.tv_sec;
+
+     if(t >= int_reg && id_socket ==1)
+     {
+       clock_gettime(CLOCK_REALTIME, &before);
+       printf("%f\n", t);
+
+       addrlen = sizeof(serveraddr);
+
+       //Send the registration message to the id server.
+       sendto(fd_id, reg_message, strlen(reg_message)+1, 0, (struct sockaddr*) &serveraddr, addrlen);
+     }
+
      //Clears sets of watched file descriptors
      FD_ZERO(&rfds);
 
@@ -74,6 +111,9 @@ int main(int argc, char *argv[])
      {
        FD_SET(fd_id, &rfds);
        maxfd = (maxfd, fd_id);
+
+       FD_SET(fd_client, &rfds);
+       maxfd = (maxfd, fd_client);
      }
 
      //Run select and get it's return value
@@ -140,6 +180,23 @@ int main(int argc, char *argv[])
         if(print_message == 1)
         {
           printf("%s\n", buffer);
+          print_message = 0;
+        }
+      }
+
+      if (FD_ISSET(fd_client, &rfds))
+      {
+        printf("%s\n", buffer);
+        addrlen = sizeof(clientaddr);
+        recvfrom(fd_client, buffer, sizeof(buffer), 0, (struct sockaddr*)&clientaddr, &addrlen);
+        printf("%s\n", buffer);
+        if(strncmp(buffer, "GET_MESSAGES", 12))
+        {
+          if(logic_timer == 0)
+          {
+            addrlen = sizeof(clientaddr);
+            sendto(fd_client, "NO MESSAGES!", strlen("NO MESSAGES!")+1, 0, (struct sockaddr*) &clientaddr, addrlen);
+          }
         }
       }
   }

@@ -34,7 +34,7 @@ int identify_user_commands(char *command)
   return n;
 }
 
-void get_arguments(int argc, char *argv[], char **server_name, char **ip_address, char **udp_port, char **tcp_port, char **id_serverip, char **id_serverport, int *n_messages, int *int_reg)
+void get_arguments(int argc, char *argv[], char **server_name, char **ip_address, int *udp_port, char **tcp_port, char **id_serverip, char **id_serverport, int *n_messages, int *int_reg)
 {
 int opt, n;
 int flag_count=0;
@@ -74,8 +74,7 @@ while((opt = getopt(argc, argv, "n:j:u:t:i:p:m:r:"))!= -1)
     break;
     case 'u':
     {
-      *udp_port = malloc(strlen(optarg)+1);
-      *udp_port = optarg;
+      *udp_port = atoi(optarg);
       flag_count++;
     }
     break;

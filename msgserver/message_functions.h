@@ -7,4 +7,6 @@ typedef struct MESSAGES
   int time_message;
 } MESSAGE;
 
+MESSAGE receive_message(char* buffer);
+
 #endif
