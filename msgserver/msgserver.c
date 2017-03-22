@@ -20,7 +20,7 @@
 
 int main(int argc, char *argv[])
 {
-  int udp_port, n_messages, int_reg, fd_id, fd_client, addrlen, n, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0;
+  int udp_port, n_messages, int_reg, fd_id, fd_client, addrlen, n, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret;
   double t;
   char *server_name, *ip_address, *tcp_port, *id_serverip, *id_serverport;
   char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR]="\0";
@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
+  printf("%d\n", fd_id);
   if((hostptr = gethostbyname("tejo.tecnico.ulisboa.pt")) == NULL)
    {
      //Error
@@ -74,13 +75,20 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
+  printf("%d\n", fd_client);
   memset((void*)&myserveraddr,(int) '\0', sizeof(myserveraddr));
 
   myserveraddr.sin_family = AF_INET;
   myserveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
   myserveraddr.sin_port = htons((u_short)udp_port);
 
-  bind(fd_client, (struct sockaddr*) &myserveraddr, sizeof(myserveraddr));
+  ret = bind(fd_client, (struct sockaddr*) &myserveraddr, sizeof(myserveraddr));
+  if(ret == -1)
+  {
+    //error.
+    exit(1);
+  }
+  printf("O valor do bind é: %d\n", ret);
 
   printf("MSGSERVER\nPor favor, escolha uma das seguintes operações e pressione 'enter':\n1-'join'\n2-'show_servers'\n3-'show_messages'\n4-'exit'\n");
 
@@ -92,7 +100,6 @@ int main(int argc, char *argv[])
      if(t >= int_reg && id_socket ==1)
      {
        clock_gettime(CLOCK_REALTIME, &before);
-       printf("%f\n", t);
 
        addrlen = sizeof(serveraddr);
 
@@ -110,14 +117,14 @@ int main(int argc, char *argv[])
      if(id_socket == 1)
      {
        FD_SET(fd_id, &rfds);
-       maxfd = (maxfd, fd_id);
+       maxfd = max(maxfd, fd_id);
 
        FD_SET(fd_client, &rfds);
-       maxfd = (maxfd, fd_client);
+       maxfd = max(maxfd, fd_client);
      }
 
      //Run select and get it's return value
-     select_ret_val = select(maxfd+1, &rfds, (fd_set*)NULL, (fd_set*)NULL, (struct timeval *)NULL);
+     select_ret_val = select(maxfd + 1, &rfds, (fd_set*)NULL, (fd_set*)NULL, (struct timeval *)NULL);
 
      //Check select return value for errors
      if (select_ret_val == -1)
@@ -186,7 +193,7 @@ int main(int argc, char *argv[])
 
       if (FD_ISSET(fd_client, &rfds))
       {
-        printf("%s\n", buffer);
+        printf("\nA mim é boa!\n");
         addrlen = sizeof(clientaddr);
         recvfrom(fd_client, buffer, sizeof(buffer), 0, (struct sockaddr*)&clientaddr, &addrlen);
         printf("%s\n", buffer);
