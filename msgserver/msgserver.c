@@ -20,13 +20,13 @@
 
 int main(int argc, char *argv[])
 {
-  int udp_port, n_messages, int_reg, fd_id, fd_client, addrlen, n, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret;
-  double t;
+  int udp_port, n_messages, int_reg, fd_id, fd_client, addrlen, n, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret, nread, t;
   char *server_name, *ip_address, *tcp_port, *id_serverip, *id_serverport;
   char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR]="\0";
   struct hostent *hostptr;
   struct sockaddr_in serveraddr, clientaddr, myserveraddr;
   struct timespec before, now;
+  struct timeval timer;
   fd_set rfds;
   MESSAGE *msg;
 
@@ -34,6 +34,9 @@ int main(int argc, char *argv[])
 
   //Collects the arguments to the corresponding variable.
   get_arguments(argc, argv, &server_name, &ip_address, &udp_port, &tcp_port, &id_serverip, &id_serverport, &n_messages, &int_reg);
+
+  //Sets the timer.
+  timer.tv_sec = int_reg;
 
   msg = (MESSAGE*) malloc((sizeof(MESSAGE) * n_messages) +1);
 
@@ -55,7 +58,6 @@ int main(int argc, char *argv[])
     exit(-1);
   }
 
-  printf("%d\n", fd_id);
   if((hostptr = gethostbyname("tejo.tecnico.ulisboa.pt")) == NULL)
    {
      //Error
@@ -70,25 +72,26 @@ int main(int argc, char *argv[])
 
   //File descriptor UDP server.
   fd_client = socket(AF_INET, SOCK_DGRAM, 0);
+
   if(fd_client == -1)
   {
     exit(-1);
   }
 
-  printf("%d\n", fd_client);
-  memset((void*)&myserveraddr,(int) '\0', sizeof(myserveraddr));
+  memset((void*)&myserveraddr,(int)'\0', sizeof(myserveraddr));
 
   myserveraddr.sin_family = AF_INET;
   myserveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
   myserveraddr.sin_port = htons((u_short)udp_port);
 
   ret = bind(fd_client, (struct sockaddr*) &myserveraddr, sizeof(myserveraddr));
+
   if(ret == -1)
   {
     //error.
+    printf("%s\n", strerror(errno));
     exit(1);
   }
-  printf("O valor do bind é: %d\n", ret);
 
   printf("MSGSERVER\nPor favor, escolha uma das seguintes operações e pressione 'enter':\n1-'join'\n2-'show_servers'\n3-'show_messages'\n4-'exit'\n");
 
@@ -97,13 +100,12 @@ int main(int argc, char *argv[])
      clock_gettime(CLOCK_REALTIME, &now);
      t = now.tv_sec - before.tv_sec;
 
-     if(t >= int_reg && id_socket ==1)
+     //Send the registration message to the id server.
+     if(t == int_reg && id_socket ==1 && print_message == 0)
      {
        clock_gettime(CLOCK_REALTIME, &before);
-
+       
        addrlen = sizeof(serveraddr);
-
-       //Send the registration message to the id server.
        sendto(fd_id, reg_message, strlen(reg_message)+1, 0, (struct sockaddr*) &serveraddr, addrlen);
      }
 
@@ -124,7 +126,7 @@ int main(int argc, char *argv[])
      }
 
      //Run select and get it's return value
-     select_ret_val = select(maxfd + 1, &rfds, (fd_set*)NULL, (fd_set*)NULL, (struct timeval *)NULL);
+     select_ret_val = select(maxfd + 1, &rfds, (fd_set*)NULL, (fd_set*)NULL, &timer);
 
      //Check select return value for errors
      if (select_ret_val == -1)
@@ -197,12 +199,12 @@ int main(int argc, char *argv[])
         addrlen = sizeof(clientaddr);
         recvfrom(fd_client, buffer, sizeof(buffer), 0, (struct sockaddr*)&clientaddr, &addrlen);
         printf("%s\n", buffer);
-        if(strncmp(buffer, "GET_MESSAGES", 12))
+        if(strncmp(buffer, "GET_MESSAGES", 12) == 0)
         {
           if(logic_timer == 0)
           {
             addrlen = sizeof(clientaddr);
-            sendto(fd_client, "NO MESSAGES!", strlen("NO MESSAGES!")+1, 0, (struct sockaddr*) &clientaddr, addrlen);
+            sendto(fd_client, "MESSAGES\nNO MESSAGES!\n", strlen("MESSAGES\nNO MESSAGES!\n")+1, 0, (struct sockaddr*) &clientaddr, addrlen);
           }
         }
       }
