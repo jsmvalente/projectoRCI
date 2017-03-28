@@ -23,8 +23,8 @@
 #include <netdb.h>
 #include <sys/types.h>
 #include <sys/time.h>
-#include "UDP.h"
 #include "ServerList.h"
+#include "UDP.h"
 #include "VerifyMalloc.h"
 
 #endif /* Defs_h */

@@ -179,6 +179,10 @@ int main(int argc, char *argv[]) {
                                     {
                                         printf("Error sending message\n");
                                     }
+                                    else
+                                    {
+                                        printf("Message sent successfuly: %s\n", message);
+                                    }
                                 }
                                 else
                                 {
@@ -290,9 +294,20 @@ int main(int argc, char *argv[]) {
             else if (FD_ISSET(msg_fd, &rfds))
             {
                 //Receive the buffer from the server
-                if((messages_list = ReceiveMessagesFromServer(msg_fd, server_list_head)) != NULL)
+                messages_list = ReceiveMessagesFromServer(msg_fd, server_list_head);
+                
+                //Test for errors
+                if(messages_list != NULL)
                 {
-                    printf("%s\n", messages_list);
+                    //The message list is empty
+                    if(strcmp(messages_list, "MESSAGES\n") == 0)
+                    {
+                        printf("Server has no messages to show");
+                    }
+                    else
+                    {
+                        printf("%s\n", messages_list);
+                    }
                     
                     free(messages_list);
                     
@@ -320,7 +335,10 @@ int main(int argc, char *argv[]) {
                     //Reset the number of attempts
                     waiting_messages = 0;
                     
-                    printf("Server not responding, changing messages server\n");
+                    if(GetServerNameFromNode(server_list_head) != NULL)
+                    {
+                        printf("Server not responding, changing messages server to %s\n", GetServerNameFromNode(server_list_head));
+                    }
                 }
                 
                 //Try to get the messages again the the new default server if we haven't runned out of servers
@@ -333,7 +351,7 @@ int main(int argc, char *argv[]) {
                     else
                     {
                         if(waiting_messages > 0)
-                            printf("Contacting server again...\n");
+                            printf("No answer, contacting server again...\n");
                         
                         //Increase the number of attempts
                         waiting_messages++;

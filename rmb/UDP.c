@@ -26,15 +26,20 @@ int CreateSocket()
 //Sends a message to the default message server
 int SendMessageToServer(int fd, ServerListNode * head, char* message)
 {
-    int addrlen;
+    int addrlen, port, ret;
     struct sockaddr_in serveraddr;
-    char relay[148];
+    char relay[148], *ip;
+    
+    //Get IP and port
+    ip = GetUDPIPFromNode(head);
+    port = GetUDPPortFromNode(head);
     
     memset((void*)&serveraddr,(int) '\0', sizeof(serveraddr));
     
+    //Setup the server address
     serveraddr.sin_family = AF_INET;
-    inet_aton(GetUDPIPFromNode(head), &serveraddr.sin_addr);
-    serveraddr.sin_port = htons((u_short)GetUDPPortFromNode(head));
+    serveraddr.sin_addr.s_addr = inet_addr(ip);
+    serveraddr.sin_port = htons((u_short)port);
     
     addrlen = sizeof(serveraddr);
     
@@ -43,7 +48,7 @@ int SendMessageToServer(int fd, ServerListNode * head, char* message)
     strcat(relay, message);
     
     //Send the message to the server
-    sendto(fd, relay, strlen(relay)+1, 0, (struct sockaddr*)&serveraddr,addrlen);
+    ret = sendto(fd, relay, strlen(relay)+1, 0, (struct sockaddr*)&serveraddr,addrlen);
     
     return 1;
 }
@@ -54,6 +59,7 @@ int RequestMessagesFromServer(int msg_fd, ServerListNode * head, int number_mess
     int addrlen, ret, port;
     struct sockaddr_in serveraddr;
     char relay[100], nmessages_string[87], *ip;
+    int errno;
     
     //Get IP and port
     ip = GetUDPIPFromNode(head);
@@ -63,7 +69,7 @@ int RequestMessagesFromServer(int msg_fd, ServerListNode * head, int number_mess
     
     //Setup the server address
     serveraddr.sin_family = AF_INET;
-    serveraddr.sin_addr.s_addr = ((struct in_addr *)ip)->s_addr;
+    serveraddr.sin_addr.s_addr = inet_addr(ip);
     serveraddr.sin_port = htons((u_short)port);
     
     addrlen = sizeof(serveraddr);
@@ -145,6 +151,7 @@ char* ReceiveMessagesFromServer(int fd, ServerListNode * head)
 {
     int addrlen, ret;
     struct sockaddr_in serveraddr;
+    int errno;
     
     char buffer[1024];
     //Dynamically allocate a string
@@ -153,7 +160,7 @@ char* ReceiveMessagesFromServer(int fd, ServerListNode * head)
     memset((void*)&serveraddr,(int) '\0', sizeof(serveraddr));
     
     serveraddr.sin_family = AF_INET;
-    inet_aton(GetUDPIPFromNode(head), &serveraddr.sin_addr);
+    serveraddr.sin_addr.s_addr = inet_addr(GetUDPIPFromNode(head));
     serveraddr.sin_port = htons((u_short)GetUDPPortFromNode(head));
     
     addrlen = sizeof(serveraddr);
@@ -166,6 +173,13 @@ char* ReceiveMessagesFromServer(int fd, ServerListNode * head)
         perror("");
         return NULL;
     }
+    
+    
+    //Copy the contents from the server to the allocated strings
+    strncpy(ret_string, buffer, ret);
+    
+    //Make sure the string is ended
+    ret_string[ret] = '\0';
     
     return ret_string;
 }

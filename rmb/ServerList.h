@@ -18,5 +18,6 @@ ServerListNode* AddNodeToListHead(ServerListNode *head, char *name, char *ip, in
 ServerListNode * CreateServerList(char* server_list);
 int GetUDPPortFromNode(ServerListNode *node);
 char* GetUDPIPFromNode(ServerListNode *node);
+char* GetServerNameFromNode(ServerListNode *node);
 void FreeServerList(ServerListNode *head);
 ServerListNode * ChangeDefaultServer(ServerListNode *head);

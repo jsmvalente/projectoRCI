@@ -49,6 +49,18 @@ char* GetUDPIPFromNode(ServerListNode *node)
     return node->ip;
 }
 
+//Returns the name of a certaing node
+char* GetServerNameFromNode(ServerListNode *node)
+{
+    if(node == NULL)
+    {
+        return NULL;
+    }
+    
+    return node->name;
+}
+
+
 //Add a new node to the serverList
 ServerListNode* AddNodeToListHead(ServerListNode *head, char *name, char *ip, int upt, int tpt)
 {
