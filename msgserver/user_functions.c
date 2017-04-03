@@ -34,7 +34,7 @@ int identify_user_commands(char *command)
   return n;
 }
 
-void get_arguments(int argc, char *argv[], char **server_name, char **ip_address, int *udp_port, char **tcp_port, char **id_serverip, char **id_serverport, int *n_messages, int *int_reg)
+void get_arguments(int argc, char *argv[], char **server_name, char **ip_address, int *udp_port, int *tcp_port, char **id_serverip, int *id_serverport, int *n_messages, int *int_reg)
 {
 int opt, n;
 int flag_count=0;
@@ -49,7 +49,7 @@ if(argc>17)
 
 //Default values.
 *id_serverip = "tejo.tecnico.ulisboa.pt";
-*id_serverport = "59000";
+*id_serverport = 59000;
 *n_messages = 200;
 *int_reg =  10;
 
@@ -80,8 +80,7 @@ while((opt = getopt(argc, argv, "n:j:u:t:i:p:m:r:"))!= -1)
     break;
     case 't':
     {
-      *tcp_port = malloc(strlen(optarg)+1);
-      *tcp_port = optarg;
+      *tcp_port = atoi(optarg);
       flag_count++;
     }
     break;
@@ -103,8 +102,7 @@ while((opt = getopt(argc, argv, "n:j:u:t:i:p:m:r:"))!= -1)
         printf("Input Missing!\n");
         exit(0);
       }
-      *id_serverport = malloc(strlen(optarg)+1);
-      *id_serverport = optarg;
+      *id_serverport = atoi(optarg);
     }
     break;
     case 'm':
