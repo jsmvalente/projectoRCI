@@ -23,10 +23,6 @@ int main(int argc, char *argv[]) {
     ServerListNode * server_list_head = NULL;
     struct sockaddr_in id_serveraddr;
     
-    //Wait up to five seconds.
-    tv.tv_sec = 5;
-    tv.tv_usec = 0;
-    
     //IP Address
     char *siip = "undefined";
     
@@ -115,6 +111,10 @@ int main(int argc, char *argv[]) {
     //Enter infinite loop
     while(1)
     {
+        //Wait up to five seconds.
+        tv.tv_sec = 5;
+        tv.tv_usec = 0;
+        
         //Clears sets of watched file descriptors
         FD_ZERO(&rfds);
         
