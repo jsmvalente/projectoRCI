@@ -39,11 +39,11 @@ int main(int argc, char *argv[])
 
   //TCP client variables.
   int *fd, nread;
-  char *readbuffer;
+  char *readbuffer = NULL;
   SERVER *servlist;
 
   //Other variables.
-  int n, i, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, start=0, default_server;
+  int n, i, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, retwrite, num_connected, set_filed =0;
   char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR], buffer_client[MAXCHAR], trash[MAXCHAR], published_msg[MAXCHAR];
 
   //Test variables.
@@ -216,6 +216,15 @@ int main(int argc, char *argv[])
       maxfd = max(maxfd, fd_tcp);
     }
 
+    if(set_filed == 1)
+    {
+      for(i=0 ; i<num_servers ; i++)
+      {
+        FD_SET(fd[i], &rfds);
+        maxfd = max(maxfd, fd[i]);
+      }
+    }
+
     //Run select and get it's return value
     select_ret_val = select(maxfd + 1, &rfds, (fd_set*)NULL, (fd_set*)NULL, &timer);
 
@@ -296,6 +305,9 @@ int main(int argc, char *argv[])
         //Connects to each TCP server.
         connect_server(servlist, fd, num_servers);
 
+        //Counts the successful connects.
+        count_connected(servlist, &num_connected, num_servers);
+
         //Adds each new fd to select().
         for(i=0 ; i<num_servers; i++)
         {
@@ -305,13 +317,24 @@ int main(int argc, char *argv[])
 
         if(num_servers != 0)
         {
-          //Get random number between 0 num_servers - 1).
+          //Get random number between 0 and num_servers - 1).
           default_server = rand() % num_servers;
-          write(fd[default_server], "SGET_MESSAGES\n", MAXCHAR);
+
+          if(num_connected != 0)
+          {
+            //Until it finds a connected server.
+            while(servlist[default_server].connect == 0)
+            {
+              default_server = rand() % num_servers;
+            }
+
+            retwrite = write(fd[default_server], "SGET_MESSAGES\n", MAXCHAR);
+          }
+
+          logic_timer_start = 1;
         }
 
-        start = 1;
-
+        set_filed = 1;
         createserver_flag = 0;
       }
 
@@ -384,6 +407,8 @@ int main(int argc, char *argv[])
       connect_count++;
     }
 
+    if(connect_count != 0)
+    {
     for(i=0 ; i<connect_count ; i++)
     {
       if(FD_ISSET(newsockfd[i], &rfds))
@@ -410,38 +435,44 @@ int main(int argc, char *argv[])
         }
       }
     }
+    }
 
     for(i=0 ; i<num_servers ; i++)
     {
-      if(FD_ISSET(fd[i], &rfds))
+      if(FD_ISSET(fd[i], &rfds) && num_connected != 0)
       {
-        nread = read(fd[i], readbuffer, 0);
+        nread = read(fd[i], readbuffer, MAXCHAR);
         if(nread == -1)
         {
           printf("Error\n");
           exit(1);
         }
 
-        printf("%s\n", readbuffer);
-
         //Puts each message in the message array.
         if(strncmp(readbuffer, "SMESSAGES", 9) == 0)
         {
           receivemessages(msg, readbuffer, &message_index);
 
-          if(start == 1)
+          if(message_index == 0)
           {
-            logic_timer = msg[message_index-1].time_message;
-            start = 0;
+            printf("No messages fetched!\n");
           }
           else
           {
-            logic_timer = max(logic_timer, msg[message_index-1].time_message) + 1;
+            if(logic_timer_start == 1)
+            {
+              logic_timer = msg[message_index-1].time_message;
+
+              logic_timer_start = 0;
+            }
+            else
+            {
+              logic_timer = max(logic_timer, msg[message_index-1].time_message) + 1;
+            }
           }
         }
       }
     }
-
   }
 
   return 0;

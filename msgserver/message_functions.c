@@ -66,6 +66,7 @@ void insert_server(SERVER *servlist, char *buffer, char *server_name)
   while(newbuffer != NULL)
   {
     sscanf(newbuffer, "%[^;]; %[^;]; %d; %d", servlist[serverindex].name, servlist[serverindex].ip, &servlist[serverindex].udp_port, &servlist[serverindex].tcp_port);
+    servlist[serverindex].connect = 1;
 
     //Checks if it's not itself!
     if(strcmp(server_name, servlist[serverindex].name) != 0)
@@ -102,6 +103,7 @@ void connect_server(SERVER *servlist, int *fd, int num_servers)
     {
       printf("Error\n");
       fprintf(stderr, "%s\n", strerror(errno));
+      servlist[i].connect = 0;
     }
   }
 }
@@ -182,4 +184,18 @@ void tcpmessage(char *readbuffer, MESSAGE *msg, int message_index, int logic_tim
   }
 
   printf("%s\n", readbuffer);
+}
+
+void count_connected(SERVER *servlist, int *num_connected, int num_servers)
+{
+  int i;
+
+  for(i=0; i < num_servers; i++)
+  {
+    if(servlist[i].connect == 1)
+    {
+      *num_connected = *num_connected +1;
+    }
+  }
+
 }
