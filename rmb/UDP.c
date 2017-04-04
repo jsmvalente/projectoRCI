@@ -59,7 +59,6 @@ int RequestMessagesFromServer(int msg_fd, ServerListNode * head, int number_mess
     int addrlen, ret, port;
     struct sockaddr_in serveraddr;
     char relay[100], nmessages_string[87], *ip;
-    int errno;
     
     //Get IP and port
     ip = GetUDPIPFromNode(head);
@@ -151,7 +150,6 @@ char* ReceiveMessagesFromServer(int fd, ServerListNode * head)
 {
     int addrlen, ret;
     struct sockaddr_in serveraddr;
-    int errno;
     
     char buffer[1024];
     //Dynamically allocate a string

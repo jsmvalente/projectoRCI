@@ -302,7 +302,7 @@ int main(int argc, char *argv[]) {
                     //The message list is empty
                     if(strcmp(messages_list, "MESSAGES\n") == 0)
                     {
-                        printf("Server has no messages to show");
+                        printf("Server has no messages to show\n");
                     }
                     else
                     {
