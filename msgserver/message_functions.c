@@ -110,15 +110,21 @@ void connect_server(SERVER *servlist, int *fd, int num_servers)
 
 void receivemessages(MESSAGE *msg, char *readbuffer, int *message_index)
 {
-  char *newbuffer;
+  char *newbuffer, buffer[MAXCHAR];
+  int n;
 
   newbuffer = strtok(readbuffer, "\n");
   newbuffer = strtok(NULL, "\n");
 
   while(newbuffer != NULL)
   {
-    sscanf(newbuffer, "%d; %s", &msg[*message_index].time_message, msg[*message_index].text);
+    sscanf(newbuffer, "%d; %s", &msg[*message_index].time_message, buffer);
     *message_index = *message_index +1;
+
+    n = strlen(buffer);
+
+    msg[*message_index].text = (char *)malloc(sizeof(char)*(n+1));
+    strcpy(msg[*message_index].text, buffer);
 
     newbuffer = strtok(NULL, "\n");
   }
