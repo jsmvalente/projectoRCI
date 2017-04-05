@@ -39,11 +39,11 @@ int main(int argc, char *argv[])
 
   //TCP client variables.
   int *fd, nread;
-  char *readbuffer = NULL;
+  char readbuffer[MAXCHAR];
   SERVER *servlist;
 
   //Other variables.
-  int n, i, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, retwrite, num_connected, set_filed =0;
+  int n, i, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, retwrite, num_connected = 0, set_filed =0;
   char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR], buffer_client[MAXCHAR], trash[MAXCHAR], published_msg[MAXCHAR];
 
   //Test variables.
@@ -70,13 +70,14 @@ int main(int argc, char *argv[])
   //Initialize random seed.
   srand(time(0));
 
-  clock_gettime(CLOCK_REALTIME, &before);
+  //clock_gettime(CLOCK_REALTIME, &before);
 
   //Collects the arguments to the corresponding variable.
   get_arguments(argc, argv, &server_name, &ip_address, &udp_port, &tcp_port, &id_serverip, &id_serverport, &n_messages, &int_reg);
 
   //Sets the timer.
   timer.tv_sec = int_reg;
+  timer.tv_usec = 0;
 
   //Declares de size of the message array in accordan to the maximum number of variables.
   msg = (MESSAGE*) malloc((sizeof(MESSAGE) * n_messages));
@@ -152,9 +153,9 @@ int main(int argc, char *argv[])
   //Initializing Socket structure.
   memset((void*)&tcpserveraddr,(int) '\0', sizeof(tcpserveraddr));
 
-  myserveraddr.sin_family = AF_INET;
-  myserveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  myserveraddr.sin_port = htons((u_short)tcp_port);
+  tcpserveraddr.sin_family = AF_INET;
+  tcpserveraddr.sin_addr.s_addr = htonl(INADDR_ANY);
+  tcpserveraddr.sin_port = htons((u_short)tcp_port);
 
   //Binding the tcp server address.
   if( bind(fd_tcp, (struct sockaddr*) &tcpserveraddr, sizeof(tcpserveraddr)) <0)
@@ -170,7 +171,6 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  newsockfd = (int *)malloc(sizeof(int));
   tcpclientlen = sizeof(tcpclientaddr);
 
   //*****************************************************************************
@@ -185,13 +185,17 @@ int main(int argc, char *argv[])
 
   while(1)
   {
-    clock_gettime(CLOCK_REALTIME, &now);
-    t = now.tv_sec - before.tv_sec;
+    //clock_gettime(CLOCK_REALTIME, &now);
+    //t = now.tv_sec - before.tv_sec;
+
+    //Sets the timer.
+    timer.tv_sec = int_reg;
+    timer.tv_usec = 0;
 
     //Send the registration message to the id server.
-    if(t == int_reg && id_socket ==1 && print_message == 0)
+    if(/*t == int_reg &&*/ id_socket ==1 && print_message == 0)
     {
-      clock_gettime(CLOCK_REALTIME, &before);
+      //clock_gettime(CLOCK_REALTIME, &before);
 
       addrlen = sizeof(serveraddr);
       sendto(fd_id, reg_message, strlen(reg_message)+1, 0, (struct sockaddr*) &serveraddr, addrlen);
@@ -212,18 +216,10 @@ int main(int argc, char *argv[])
       FD_SET(fd_client, &rfds);
       maxfd = max(maxfd, fd_client);
 
-      FD_SET(fd_tcp, &rfds);
-      maxfd = max(maxfd, fd_tcp);
     }
 
-    if(set_filed == 1)
-    {
-      for(i=0 ; i<num_servers ; i++)
-      {
-        FD_SET(fd[i], &rfds);
-        maxfd = max(maxfd, fd[i]);
-      }
-    }
+    FD_SET(fd_tcp, &rfds);
+    maxfd = max(maxfd, fd_tcp);
 
     //Run select and get it's return value
     select_ret_val = select(maxfd + 1, &rfds, (fd_set*)NULL, (fd_set*)NULL, &timer);
@@ -273,6 +269,16 @@ int main(int argc, char *argv[])
         id_socket = 1;
         //Prints on the screen.
         print_message = 1;
+      }
+
+      //Show_messages
+      if(n==3)
+      {
+        printf("MESSAGES:\n");
+        for(i=0 ; i<message_index ; i++)
+        {
+          printf("%d:%s\n", msg[i].time_message, msg[i].text);
+        }
       }
 
       //Exit.
@@ -328,13 +334,15 @@ int main(int argc, char *argv[])
               default_server = rand() % num_servers;
             }
 
-            retwrite = write(fd[default_server], "SGET_MESSAGES\n", MAXCHAR);
+            retwrite = write(fd[default_server], "SGET_MESSAGES\n", strlen("SGET_MESSAGES\n")+1);
           }
+
+          FD_SET(fd[default_server], &rfds);
+          maxfd = max(maxfd, fd[default_server]);
 
           logic_timer_start = 1;
         }
 
-        set_filed = 1;
         createserver_flag = 0;
       }
 
@@ -373,15 +381,21 @@ int main(int argc, char *argv[])
         strcat(buffer_client, ";");
         strcat(buffer_client, msg[message_index-1].text);
 
+
         //Sends the received message to the other servers.
         for(i=0 ; i<num_servers ; i++)
         {
-          write(fd[i], buffer_client, MAXCHAR);
+          if(servlist[i].connect != 0)
+          {
+            write(fd[i], buffer_client, MAXCHAR);
+          }
         }
-        for(i=0 ; i ; i++)
+
+        /*for(i=0 ; i ; i++)
         {
           write(newsockfd[i], buffer_client, MAXCHAR);
         }
+        */
       }
     }
 
@@ -396,6 +410,7 @@ int main(int argc, char *argv[])
         newsockfd = (int*)realloc(newsockfd, sizeof(int)+sizeof(int)*connect_count);
       }
 
+      tcpclientlen = sizeof(tcpclientaddr);
       newsockfd[connect_count] = accept(fd_tcp, (struct sockaddr*) &tcpclientaddr, &tcpclientlen);
 
       if(newsockfd <0)
@@ -437,11 +452,11 @@ int main(int argc, char *argv[])
     }
     }
 
-    for(i=0 ; i<num_servers ; i++)
+    if(num_connected != 0)
     {
-      if(FD_ISSET(fd[i], &rfds) && num_connected != 0)
+      if(FD_ISSET(fd[default_server], &rfds))
       {
-        nread = read(fd[i], readbuffer, MAXCHAR);
+        nread = read(fd[default_server], readbuffer, MAXCHAR);
         if(nread == -1)
         {
           printf("Error\n");
@@ -462,12 +477,13 @@ int main(int argc, char *argv[])
             if(logic_timer_start == 1)
             {
               logic_timer = msg[message_index-1].time_message;
-
+              printf("Logic Timer: %d\n", logic_timer);
               logic_timer_start = 0;
             }
             else
             {
               logic_timer = max(logic_timer, msg[message_index-1].time_message) + 1;
+              printf("Logic Timer: %d\n", logic_timer);
             }
           }
         }
