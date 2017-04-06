@@ -36,9 +36,10 @@ int main(int argc, char *argv[])
 
   //TCP Server variables.
   int fd_tcp, tcpclientlen, newsockfd[5], connect_count=0;
+  char *ip;
   struct sockaddr_in tcpserveraddr, tcpclientaddr;
-  struct sockaddr name[MAXCHAR];
-  socklen_t namelen = MAXCHAR;
+  struct sockaddr_in name;
+  socklen_t namelen;
 
   //TCP client variables.
   int *fd, nread, nwrite;
@@ -278,8 +279,10 @@ int main(int argc, char *argv[])
 
         for(i=0 ; i <num_connected ; i++)
         {
-          getsockname(newsockfd[i], name , &addrlen);
-          printf("IP:%s\n", name);
+          namelen = sizeof(name);
+          getsockname(newsockfd[i], (struct sockaddr *)&name , &namelen);
+          ip = inet_ntoa(name.sin_addr);
+          printf("IP:%s\n", ip);
         }
       }
 
