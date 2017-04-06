@@ -123,10 +123,9 @@ void receivemessages(MESSAGE *msg, char *readbuffer, int *message_index)
   {
     sscanf(newbuffer, "%d; %s", &msg[*message_index].time_message, buffer);
 
+    n = strlen(buffer);
     msg[*message_index].text = (char *)malloc(sizeof(char)*(n+1));
     strcpy(msg[*message_index].text, buffer);
-
-    n = strlen(buffer);
 
     *message_index = *message_index +1;
     newbuffer = strtok(NULL, "\n");
