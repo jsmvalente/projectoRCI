@@ -115,17 +115,17 @@ void receivemessages(MESSAGE *msg, char *readbuffer, int *message_index)
 
   newbuffer = strtok(readbuffer, "\n");
   newbuffer = strtok(NULL, "\n");
-
+  printf("%s\n", newbuffer);
   while(newbuffer != NULL)
   {
     sscanf(newbuffer, "%d; %s", &msg[*message_index].time_message, buffer);
-    *message_index = *message_index +1;
-
-    n = strlen(buffer);
 
     msg[*message_index].text = (char *)malloc(sizeof(char)*(n+1));
     strcpy(msg[*message_index].text, buffer);
 
+    n = strlen(buffer);
+
+    *message_index = *message_index +1;
     newbuffer = strtok(NULL, "\n");
   }
 }
@@ -137,7 +137,7 @@ void clientmessage(char *buffer_client, MESSAGE *msg, int n_wanted_msg, int mess
 
   strcpy(buffer_client, "MESSAGES\n");
 
-  printf("%d\n", logic_timer);
+  printf("logic_timer value:%d\nmessage_index value:%d\n", logic_timer, message_index);
   if(logic_timer != 0)
   {
     for(i = message_index - n_wanted_msg; i < message_index; i++)
@@ -146,7 +146,6 @@ void clientmessage(char *buffer_client, MESSAGE *msg, int n_wanted_msg, int mess
       {
         strcat(buffer_client, msg[i].text);
         strcat(buffer_client, "\n");
-        printf("%s", buffer_client);
       }
     }
   }

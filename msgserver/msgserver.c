@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
   struct sockaddr_in myserveraddr, clientaddr;
 
   //TCP Server variables.
-  int fd_tcp, tcpclientlen, *newsockfd, connect_count=0;
+  int fd_tcp, tcpclientlen, newsockfd[5], connect_count=0;
   struct sockaddr_in tcpserveraddr, tcpclientaddr;
 
   //TCP client variables.
@@ -358,7 +358,6 @@ int main(int argc, char *argv[])
     {
       clientaddrlen = sizeof(clientaddr);
       recvfrom(fd_client, buffer_client, sizeof(buffer_client), 0, (struct sockaddr*)&clientaddr, &clientaddrlen);
-      printf("%s\n", buffer_client);
 
       if(strncmp(buffer_client, "GET_MESSAGES", 12) == 0)
       {
@@ -381,7 +380,7 @@ int main(int argc, char *argv[])
         strcat(buffer_client, ";");
         strcat(buffer_client, msg[message_index-1].text);
 
-
+        printf("%s\n", buffer_client);
         //Sends the received message to the other servers.
         for(i=0 ; i<num_servers ; i++)
         {
@@ -391,27 +390,24 @@ int main(int argc, char *argv[])
           }
         }
 
-        /*for(i=0 ; i ; i++)
+        for(i=0 ; i <num_connected ; i++)
         {
           write(newsockfd[i], buffer_client, MAXCHAR);
         }
-        */
+
       }
     }
 
     if(FD_ISSET(fd_tcp, &rfds))
     {
-      if(connect_count == 0)
-      {
-        newsockfd = (int*)malloc(sizeof(int));
-      }
-      else
-      {
-        newsockfd = (int*)realloc(newsockfd, sizeof(int)+sizeof(int)*connect_count);
-      }
-
       tcpclientlen = sizeof(tcpclientaddr);
+
       newsockfd[connect_count] = accept(fd_tcp, (struct sockaddr*) &tcpclientaddr, &tcpclientlen);
+
+      FD_SET(newsockfd[connect_count], &rfds);
+
+
+      maxfd = max(maxfd, newsockfd[connect_count]);
 
       if(newsockfd <0)
       {
@@ -428,20 +424,18 @@ int main(int argc, char *argv[])
     {
       if(FD_ISSET(newsockfd[i], &rfds))
       {
-        nread = read(fd[i], readbuffer, 0);
+        nread = read(newsockfd[i], readbuffer, MAXCHAR);
         if(nread == -1)
         {
           printf("Error\n");
           exit(1);
         }
 
-        printf("%s\n", readbuffer);
-
         //Puts each message in the message array.
         if(strncmp(readbuffer, "SGET_MESSAGES", 12) == 0)
         {
           tcpmessage(readbuffer, msg, message_index, logic_timer);
-          write(fd[i], readbuffer, MAXCHAR);
+          write(newsockfd[i], readbuffer, MAXCHAR);
         }
         else if(strncmp(readbuffer, "SMESSAGES", 9) == 0)
         {
@@ -477,13 +471,11 @@ int main(int argc, char *argv[])
             if(logic_timer_start == 1)
             {
               logic_timer = msg[message_index-1].time_message;
-              printf("Logic Timer: %d\n", logic_timer);
               logic_timer_start = 0;
             }
             else
             {
               logic_timer = max(logic_timer, msg[message_index-1].time_message) + 1;
-              printf("Logic Timer: %d\n", logic_timer);
             }
           }
         }
