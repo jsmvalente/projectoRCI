@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <signal.h>
 #include <time.h>
 
 #include "user_functions.h"
@@ -40,12 +41,12 @@ int main(int argc, char *argv[])
   socklen_t namelen = MAXCHAR;
 
   //TCP client variables.
-  int *fd, nread;
+  int *fd, nread, nwrite;
   char readbuffer[MAXCHAR];
   SERVER *servlist;
 
   //Other variables.
-  int n, i, select_ret_val, maxfd, id_socket=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, retwrite, num_connected = 0, set_filed =0;
+  int n, i, select_ret_val, maxfd, id_socket=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, num_connected = 0, set_filed =0;
   char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR], buffer_client[MAXCHAR], trash[MAXCHAR], published_msg[MAXCHAR];
 
   //Test variables.
@@ -54,6 +55,9 @@ int main(int argc, char *argv[])
   //Declaration of timer concern variables.
   struct timespec before, now;
   struct timeval timer;
+
+  //SIGPIPE signal variable.
+  void (*old_handler)(int); //Interrupt handler.
 
   //Declaration of variable for Select().
   fd_set rfds;
@@ -141,6 +145,12 @@ int main(int argc, char *argv[])
   {
     //error.
     printf("%s\n", strerror(errno));
+    exit(1);
+  }
+
+  if((old_handler=signal(SIGPIPE,SIG_IGN))==SIG_ERR)
+  {
+    //Error.
     exit(1);
   }
 
@@ -262,13 +272,14 @@ int main(int argc, char *argv[])
         {
           if(servlist[i].connect != 0)
           {
-            printf("IP:%s;TCP_Port:%d\n", servlist[i].ip, servlist[i].tcp_port);
+            printf("IP:%s\n", servlist[i].ip);
           }
         }
 
         for(i=0 ; i <num_connected ; i++)
         {
           getsockname(newsockfd[i], name , &addrlen);
+          printf("IP:%s\n", name);
         }
       }
 
@@ -348,12 +359,29 @@ int main(int argc, char *argv[])
           if(num_connected != 0)
           {
             //Until it finds a connected server.
-            while(servlist[default_server].connect == 0)
+            while(nwrite == -1 && num_connected != 0)
             {
-              default_server = rand() % num_servers;
-            }
+              while(servlist[default_server].connect == 0)
+              {
+                default_server = rand() % num_servers;
+              }
 
-            retwrite = write(fd[default_server], "SGET_MESSAGES\n", strlen("SGET_MESSAGES\n")+1);
+              nwrite = write(fd[default_server], "SGET_MESSAGES\n", strlen("SGET_MESSAGES\n")+1);
+              if(nwrite == -1)
+              {
+                if(errno == 32)
+                {
+                  servlist[i].connect == 0;
+                  num_connected--;
+                  FD_CLR(fd[i], &rfds);
+                }
+                else
+                {
+                  //Error.
+                  exit(1);
+                }
+              }
+            }
           }
 
           FD_SET(fd[default_server], &rfds);
@@ -398,13 +426,43 @@ int main(int argc, char *argv[])
         {
           if(servlist[i].connect != 0)
           {
-            write(fd[i], buffer_client, MAXCHAR);
+            nwrite = write(fd[i], buffer_client, MAXCHAR);
+            if(nwrite == -1)
+            {
+              if(errno == 32)
+              {
+                servlist[i].connect == 0;
+                FD_CLR(fd[i], &rfds);
+              }
+              else
+              {
+                //Error.
+                exit(1);
+              }
+            }
           }
         }
 
         for(i=0 ; i <num_connected ; i++)
         {
-          write(newsockfd[i], buffer_client, MAXCHAR);
+          if(newsockfd[i]!=-3)
+          {
+          nwrite = write(newsockfd[i], buffer_client, MAXCHAR);
+          }
+
+          if(nwrite == -1)
+          {
+            if(errno == 32)
+            {
+              FD_CLR(newsockfd[i], &rfds);
+              newsockfd[i] = -3;
+            }
+            else
+            {
+              //Error.
+              exit(1);
+            }
+          }
         }
       }
     }
@@ -449,7 +507,20 @@ int main(int argc, char *argv[])
         {
           tcpmessage(readbuffer, msg, message_index, logic_timer);
 
-          write(newsockfd[i], readbuffer, MAXCHAR);
+          nwrite = write(newsockfd[i], readbuffer, MAXCHAR);
+          if(nwrite == -1)
+          {
+            if(errno == 32)
+            {
+              FD_CLR(newsockfd[i], &rfds);
+              newsockfd[i] = -3;
+            }
+            else
+            {
+              //Error.
+              exit(1);
+            }
+          }
         }
         else if(strncmp(readbuffer, "SMESSAGES", 9) == 0)
         {
