@@ -13,23 +13,6 @@
 
 #define MAXCHAR 10240
 
-MESSAGE receive_message(char* buffer)
-{
-  MESSAGE msg;
-
-  printf("Please insert message:\n");
-
-  fgets(buffer, MAXCHAR, stdin);
-
-  msg.text = malloc(strlen(buffer)+1);
-
-  strcpy(msg.text, buffer);
-
-  printf("%s\n", msg.text);
-
-  return msg;
-}
-
 //Counts the number of a certain character in a string.
 int strcount(char *s, char ch)
 {
@@ -59,16 +42,24 @@ int server_count(char *serverlist)
 //Inserts the servers retrieved from ID server in the servlist.
 void insert_server(SERVER *servlist, char *buffer, char *server_name)
 {
-  int serverindex=0;
-  char *newbuffer;
+  int serverindex=0, size;
+  char *newbuffer, name[MAXCHAR], ip[MAXCHAR];
+
 
   newbuffer = strtok(buffer, "\n");
   newbuffer = strtok(NULL, "\n");
 
   while(newbuffer != NULL)
   {
-    sscanf(newbuffer, "%[^;]; %[^;]; %d; %d", servlist[serverindex].name, servlist[serverindex].ip, &servlist[serverindex].udp_port, &servlist[serverindex].tcp_port);
+    sscanf(newbuffer, "%[^;]; %[^;]; %d; %d", name, ip, &servlist[serverindex].udp_port, &servlist[serverindex].tcp_port);
     servlist[serverindex].connect = 1;
+
+    size = strlen(name) + 1;
+    servlist[serverindex].name = (char *)malloc(sizeof(char)*size);
+    strcpy(servlist[serverindex].name, name);
+    size = strlen(ip) + 1;
+    servlist[serverindex].ip = (char *)malloc(sizeof(char)*size);
+    strcpy(servlist[serverindex].ip, ip);
 
     //Checks if it's not itself!
     if(strcmp(server_name, servlist[serverindex].name) != 0)

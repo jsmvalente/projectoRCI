@@ -10,14 +10,13 @@ typedef struct MESSAGES
 
 typedef struct SERVERS
 {
-    char name[MAXCHAR];
-    char ip[MAXCHAR];
+    char *name;
+    char *ip;
     int udp_port;
     int tcp_port;
     int connect;
 } SERVER;
 
-MESSAGE receive_message(char* buffer);
 int strcount(char *s, char ch);
 int server_count(char *serverlist);
 void insert_server(SERVER *servlist, char *buffer, char *server_name);

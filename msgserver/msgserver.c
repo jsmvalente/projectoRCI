@@ -9,7 +9,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <signal.h>
 #include <time.h>
 
 #include "user_functions.h"
@@ -36,18 +35,17 @@ int main(int argc, char *argv[])
 
   //TCP Server variables.
   int fd_tcp, tcpclientlen, newsockfd[5], connect_count=0;
-  char *ip;
   struct sockaddr_in tcpserveraddr, tcpclientaddr;
-  struct sockaddr_in name;
-  socklen_t namelen;
+  struct sockaddr name[MAXCHAR];
+  socklen_t namelen = MAXCHAR;
 
   //TCP client variables.
-  int *fd, nread, nwrite;
+  int *fd, nread;
   char readbuffer[MAXCHAR];
   SERVER *servlist;
 
   //Other variables.
-  int n, i, select_ret_val, maxfd, id_socket=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, num_connected = 0, set_filed =0;
+  int n, i, select_ret_val, maxfd, id_socket=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, retwrite, num_connected = 0, set_filed =0;
   char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR], buffer_client[MAXCHAR], trash[MAXCHAR], published_msg[MAXCHAR];
 
   //Test variables.
@@ -56,9 +54,6 @@ int main(int argc, char *argv[])
   //Declaration of timer concern variables.
   struct timespec before, now;
   struct timeval timer;
-
-  //SIGPIPE signal variable.
-  void (*old_handler)(int); //Interrupt handler.
 
   //Declaration of variable for Select().
   fd_set rfds;
@@ -146,12 +141,6 @@ int main(int argc, char *argv[])
   {
     //error.
     printf("%s\n", strerror(errno));
-    exit(1);
-  }
-
-  if((old_handler=signal(SIGPIPE,SIG_IGN))==SIG_ERR)
-  {
-    //Error.
     exit(1);
   }
 
@@ -273,16 +262,13 @@ int main(int argc, char *argv[])
         {
           if(servlist[i].connect != 0)
           {
-            printf("IP:%s\n", servlist[i].ip);
+            printf("IP:%s;TCP_Port:%d\n", servlist[i].ip, servlist[i].tcp_port);
           }
         }
 
         for(i=0 ; i <num_connected ; i++)
         {
-          namelen = sizeof(name);
-          getsockname(newsockfd[i], (struct sockaddr *)&name , &namelen);
-          ip = inet_ntoa(name.sin_addr);
-          printf("IP:%s\n", ip);
+          getsockname(newsockfd[i], name , &addrlen);
         }
       }
 
@@ -301,6 +287,19 @@ int main(int argc, char *argv[])
       {
         //Closes the program.
         printf("Closing the program...\n");
+
+        for(i=0 ; i<num_servers; i++)
+        {
+          free(servlist[i].name);
+          free(servlist[i].ip);
+        }
+        free(servlist);
+        free(fd);
+        for(i=0; i<message_index; i++)
+        {
+          free(msg[i].text);
+        }
+        free(msg);
 
         //Closes the FDs.
         close(fd_id);
@@ -338,6 +337,8 @@ int main(int argc, char *argv[])
         //Inserts the information respective to each server.
         insert_server(servlist, buffer, server_name);
 
+        printf("Connecting to servers...\n");
+
         //Connects to each TCP server.
         connect_server(servlist, fd, num_servers);
 
@@ -362,29 +363,12 @@ int main(int argc, char *argv[])
           if(num_connected != 0)
           {
             //Until it finds a connected server.
-            while(nwrite == -1 && num_connected != 0)
+            while(servlist[default_server].connect == 0)
             {
-              while(servlist[default_server].connect == 0)
-              {
-                default_server = rand() % num_servers;
-              }
-
-              nwrite = write(fd[default_server], "SGET_MESSAGES\n", strlen("SGET_MESSAGES\n")+1);
-              if(nwrite == -1)
-              {
-                if(errno == 32)
-                {
-                  servlist[i].connect == 0;
-                  num_connected--;
-                  FD_CLR(fd[i], &rfds);
-                }
-                else
-                {
-                  //Error.
-                  exit(1);
-                }
-              }
+              default_server = rand() % num_servers;
             }
+
+            retwrite = write(fd[default_server], "SGET_MESSAGES\n", strlen("SGET_MESSAGES\n")+1);
           }
 
           FD_SET(fd[default_server], &rfds);
@@ -429,43 +413,13 @@ int main(int argc, char *argv[])
         {
           if(servlist[i].connect != 0)
           {
-            nwrite = write(fd[i], buffer_client, MAXCHAR);
-            if(nwrite == -1)
-            {
-              if(errno == 32)
-              {
-                servlist[i].connect == 0;
-                FD_CLR(fd[i], &rfds);
-              }
-              else
-              {
-                //Error.
-                exit(1);
-              }
-            }
+            write(fd[i], buffer_client, MAXCHAR);
           }
         }
 
         for(i=0 ; i <num_connected ; i++)
         {
-          if(newsockfd[i]!=-3)
-          {
-          nwrite = write(newsockfd[i], buffer_client, MAXCHAR);
-          }
-
-          if(nwrite == -1)
-          {
-            if(errno == 32)
-            {
-              FD_CLR(newsockfd[i], &rfds);
-              newsockfd[i] = -3;
-            }
-            else
-            {
-              //Error.
-              exit(1);
-            }
-          }
+          write(newsockfd[i], buffer_client, MAXCHAR);
         }
       }
     }
@@ -477,17 +431,17 @@ int main(int argc, char *argv[])
 
       newsockfd[connect_count] = accept(fd_tcp, (struct sockaddr*) &tcpclientaddr, &tcpclientlen);
 
-      FD_SET(newsockfd[connect_count], &rfds);
-
-
-      maxfd = max(maxfd, newsockfd[connect_count]);
-
       if(newsockfd <0)
       {
         //Error.
         exit(1);
       }
 
+      FD_SET(newsockfd[connect_count], &rfds);
+
+      maxfd = max(maxfd, newsockfd[connect_count]);
+
+      printf("New server entered!\n");
       connect_count++;
     }
 
@@ -510,20 +464,7 @@ int main(int argc, char *argv[])
         {
           tcpmessage(readbuffer, msg, message_index, logic_timer);
 
-          nwrite = write(newsockfd[i], readbuffer, MAXCHAR);
-          if(nwrite == -1)
-          {
-            if(errno == 32)
-            {
-              FD_CLR(newsockfd[i], &rfds);
-              newsockfd[i] = -3;
-            }
-            else
-            {
-              //Error.
-              exit(1);
-            }
-          }
+          write(newsockfd[i], readbuffer, MAXCHAR);
         }
         else if(strncmp(readbuffer, "SMESSAGES", 9) == 0)
         {
@@ -570,6 +511,8 @@ int main(int argc, char *argv[])
               logic_timer = max(logic_timer, msg[message_index-1].time_message) + 1;
             }
           }
+
+          printf("New messages!\n");
         }
       }
     }
