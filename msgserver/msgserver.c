@@ -16,7 +16,7 @@
 
 #define max(A,B) ((A)>=(B)?(A):(B))
 #define PORT  59000
-#define MAXCHAR 1024
+#define MAXCHAR 10240
 
 int main(int argc, char *argv[])
 {
@@ -36,6 +36,8 @@ int main(int argc, char *argv[])
   //TCP Server variables.
   int fd_tcp, tcpclientlen, newsockfd[5], connect_count=0;
   struct sockaddr_in tcpserveraddr, tcpclientaddr;
+  struct sockaddr name[MAXCHAR];
+  socklen_t namelen = MAXCHAR;
 
   //TCP client variables.
   int *fd, nread;
@@ -43,7 +45,7 @@ int main(int argc, char *argv[])
   SERVER *servlist;
 
   //Other variables.
-  int n, i, select_ret_val, maxfd, id_socket=0, print_message=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, retwrite, num_connected = 0, set_filed =0;
+  int n, i, select_ret_val, maxfd, id_socket=0, logic_timer=0, ret, t, n_wanted_msg, message_index=0, num_servers, createserver_flag=0, logic_timer_start=0, default_server, retwrite, num_connected = 0, set_filed =0;
   char command[MAXCHAR], reg_message[MAXCHAR], buffer[MAXCHAR], buffer_client[MAXCHAR], trash[MAXCHAR], published_msg[MAXCHAR];
 
   //Test variables.
@@ -185,18 +187,13 @@ int main(int argc, char *argv[])
 
   while(1)
   {
-    //clock_gettime(CLOCK_REALTIME, &now);
-    //t = now.tv_sec - before.tv_sec;
-
     //Sets the timer.
     timer.tv_sec = int_reg;
     timer.tv_usec = 0;
 
     //Send the registration message to the id server.
-    if(/*t == int_reg &&*/ id_socket ==1 && print_message == 0)
+    if(id_socket ==1)
     {
-      //clock_gettime(CLOCK_REALTIME, &before);
-
       addrlen = sizeof(serveraddr);
       sendto(fd_id, reg_message, strlen(reg_message)+1, 0, (struct sockaddr*) &serveraddr, addrlen);
     }
@@ -253,8 +250,6 @@ int main(int argc, char *argv[])
 
         //It can now receive information from the server.
         id_socket = 1;
-        //Blocks printing on the screen.
-        print_message = 0;
         //Creation of the server flag.
         createserver_flag = 1;
       }
@@ -262,13 +257,19 @@ int main(int argc, char *argv[])
       //show_servers.
       if(n==2)
       {
-        addrlen = sizeof(serveraddr);
-        //Send the "GET_SERVERS" message to the id server.
-        sendto(fd_id, "GET_SERVERS", strlen("GET_SERVERS")+1, 0, (struct sockaddr*) &serveraddr, addrlen);
-        //It can now receive information from the server.
-        id_socket = 1;
-        //Prints on the screen.
-        print_message = 1;
+        printf("SERVERS\n");
+        for(i=0 ; i<num_servers ; i++)
+        {
+          if(servlist[i].connect != 0)
+          {
+            printf("IP:%s;TCP_Port:%d\n", servlist[i].ip, servlist[i].tcp_port);
+          }
+        }
+
+        for(i=0 ; i <num_connected ; i++)
+        {
+          getsockname(newsockfd[i], name , &addrlen);
+        }
       }
 
       //Show_messages
@@ -285,6 +286,21 @@ int main(int argc, char *argv[])
       if(n==4)
       {
         //Closes the program.
+        printf("Closing the program...\n");
+
+        //Closes the FDs.
+        close(fd_id);
+        close(fd_client);
+        close(fd_tcp);
+        for(i=0 ; i<num_servers; i++)
+        {
+          close(fd[i]);
+        }
+        for(i=0 ; i<connect_count; i++)
+        {
+          close(newsockfd[i]);
+        }
+
         break;
       }
     }
@@ -311,6 +327,8 @@ int main(int argc, char *argv[])
         //Connects to each TCP server.
         connect_server(servlist, fd, num_servers);
 
+        printf("Connect finished!\n");
+
         //Counts the successful connects.
         count_connected(servlist, &num_connected, num_servers);
 
@@ -321,6 +339,7 @@ int main(int argc, char *argv[])
           maxfd = max(maxfd, fd[i]);
         }
 
+        //while it doesn't find a connected server searches for a new one.
         if(num_servers != 0)
         {
           //Get random number between 0 and num_servers - 1).
@@ -345,15 +364,9 @@ int main(int argc, char *argv[])
 
         createserver_flag = 0;
       }
-
-      //Controls printing the list of servers on screen.
-      if(print_message == 1)
-      {
-        printf("%s\n", buffer);
-        print_message = 0;
-      }
     }
 
+    //Receives the published messages from the client or send it to the client.
     if (FD_ISSET(fd_client, &rfds))
     {
       clientaddrlen = sizeof(clientaddr);
@@ -380,7 +393,6 @@ int main(int argc, char *argv[])
         strcat(buffer_client, ";");
         strcat(buffer_client, msg[message_index-1].text);
 
-        printf("%s\n", buffer_client);
         //Sends the received message to the other servers.
         for(i=0 ; i<num_servers ; i++)
         {
@@ -394,10 +406,10 @@ int main(int argc, char *argv[])
         {
           write(newsockfd[i], buffer_client, MAXCHAR);
         }
-
       }
     }
 
+    //Listening TCP sockect that creates a new socket for each incoming client server TCP connection.
     if(FD_ISSET(fd_tcp, &rfds))
     {
       tcpclientlen = sizeof(tcpclientaddr);
@@ -418,6 +430,7 @@ int main(int argc, char *argv[])
       connect_count++;
     }
 
+    //If there is more than one client server connected, it does what the client wants either send a message (when the client program starts and sends the SGET_MESSAGES) or receive a message (when the client server receives a new message through PUBLISH).
     if(connect_count != 0)
     {
     for(i=0 ; i<connect_count ; i++)
@@ -435,6 +448,7 @@ int main(int argc, char *argv[])
         if(strncmp(readbuffer, "SGET_MESSAGES", 12) == 0)
         {
           tcpmessage(readbuffer, msg, message_index, logic_timer);
+
           write(newsockfd[i], readbuffer, MAXCHAR);
         }
         else if(strncmp(readbuffer, "SMESSAGES", 9) == 0)
@@ -446,6 +460,7 @@ int main(int argc, char *argv[])
     }
     }
 
+    //If detects activity in the server picked to retrieve the messages at the begining of the program it reads its messages and inserts it in the message list (msg[]).
     if(num_connected != 0)
     {
       if(FD_ISSET(fd[default_server], &rfds))
@@ -462,6 +477,7 @@ int main(int argc, char *argv[])
         {
           receivemessages(msg, readbuffer, &message_index);
 
+          //If no messages,
           if(message_index == 0)
           {
             printf("No messages fetched!\n");
@@ -470,11 +486,13 @@ int main(int argc, char *argv[])
           {
             if(logic_timer_start == 1)
             {
+              //In the begining the logic timer is equal to the one on the latest message.
               logic_timer = msg[message_index-1].time_message;
               logic_timer_start = 0;
             }
             else
             {
+              //Then when it receives a new message does the normal logic timer count.
               logic_timer = max(logic_timer, msg[message_index-1].time_message) + 1;
             }
           }

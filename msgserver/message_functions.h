@@ -1,7 +1,7 @@
 #ifndef MESSAGE_FUNCTIONS_
 #define MESSAGES_FUNCTIONS_
 
-#define MAXCHAR 1024
+#define MAXCHAR 10240
 typedef struct MESSAGES
 {
   char *text;

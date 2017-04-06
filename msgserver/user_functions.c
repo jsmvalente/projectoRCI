@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "user_functions.h"
 
+//Identifies the user commands.
 int identify_user_commands(char *command)
 {
   int n=0;
@@ -27,25 +28,17 @@ int identify_user_commands(char *command)
   else
   {
     n = 5;
-    printf("Command not valid!\n");
-    exit(0);
+    printf("Command not valid: Try Again!\n");
   }
 
   return n;
 }
 
+//Retrieves the arguments from the command line and puts it in the respective variables.
 void get_arguments(int argc, char *argv[], char **server_name, char **ip_address, int *udp_port, int *tcp_port, char **id_serverip, int *id_serverport, int *n_messages, int *int_reg)
 {
 int opt, n;
 int flag_count=0;
-
-/*
-if(argc>17)
-{
-  printf("Something is wrog!\n");
-  exit(0);
-}
-*/
 
 //Default values.
 *id_serverip = "tejo.tecnico.ulisboa.pt";

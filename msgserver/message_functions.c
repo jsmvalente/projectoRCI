@@ -11,7 +11,7 @@
 #include "message_functions.h"
 
 
-#define MAXCHAR 1024
+#define MAXCHAR 10240
 
 MESSAGE receive_message(char* buffer)
 {
@@ -46,6 +46,7 @@ int strcount(char *s, char ch)
   return conta;
 }
 
+//Counts the number of servers in the servlist.
 int server_count(char *serverlist)
 {
   int n=0;
@@ -55,6 +56,7 @@ int server_count(char *serverlist)
   return n;
 }
 
+//Inserts the servers retrieved from ID server in the servlist.
 void insert_server(SERVER *servlist, char *buffer, char *server_name)
 {
   int serverindex=0;
@@ -78,6 +80,7 @@ void insert_server(SERVER *servlist, char *buffer, char *server_name)
   }
 }
 
+//Connects to each server on the server list (servlist).
 void connect_server(SERVER *servlist, int *fd, int num_servers)
 {
   int i, n, errno;
@@ -89,11 +92,10 @@ void connect_server(SERVER *servlist, int *fd, int num_servers)
     if(fd[i] == -1)
     {
       exit(-1);
-      printf("És boa, MIM!\n");
     }
 
     memset((void*)&serveraddr,(int) '\0', sizeof(serveraddr));
-    printf("%s: %d\n", servlist[i].ip, servlist[i].tcp_port);
+
     serveraddr.sin_family = AF_INET;
     serveraddr.sin_addr.s_addr = inet_addr(servlist[i].ip);
     serveraddr.sin_port = htons((u_short) servlist[i].tcp_port);
@@ -108,6 +110,7 @@ void connect_server(SERVER *servlist, int *fd, int num_servers)
   }
 }
 
+//Puts the received messages from the servers connected in connect_server in the message list (msg[]).
 void receivemessages(MESSAGE *msg, char *readbuffer, int *message_index)
 {
   char *newbuffer, buffer[MAXCHAR];
@@ -115,7 +118,7 @@ void receivemessages(MESSAGE *msg, char *readbuffer, int *message_index)
 
   newbuffer = strtok(readbuffer, "\n");
   newbuffer = strtok(NULL, "\n");
-  printf("%s\n", newbuffer);
+
   while(newbuffer != NULL)
   {
     sscanf(newbuffer, "%d; %s", &msg[*message_index].time_message, buffer);
@@ -130,6 +133,7 @@ void receivemessages(MESSAGE *msg, char *readbuffer, int *message_index)
   }
 }
 
+//Creates the message to send to the client when requested.
 void clientmessage(char *buffer_client, MESSAGE *msg, int n_wanted_msg, int message_index, int logic_timer)
 {
   int i;
@@ -137,7 +141,6 @@ void clientmessage(char *buffer_client, MESSAGE *msg, int n_wanted_msg, int mess
 
   strcpy(buffer_client, "MESSAGES\n");
 
-  printf("logic_timer value:%d\nmessage_index value:%d\n", logic_timer, message_index);
   if(logic_timer != 0)
   {
     for(i = message_index - n_wanted_msg; i < message_index; i++)
@@ -151,6 +154,8 @@ void clientmessage(char *buffer_client, MESSAGE *msg, int n_wanted_msg, int mess
   }
 }
 
+
+//Inserts the message retrieved from client PUBLISH in the message list (msg[]).
 void insertmessage(char *buffer_client, MESSAGE *msg, int *logic_timer, int *message_index)
 {
   int message_size;
@@ -168,10 +173,11 @@ void insertmessage(char *buffer_client, MESSAGE *msg, int *logic_timer, int *mes
   *message_index = *message_index +1;
 }
 
+//Creates the message to send to the server client connected by tcp.
 void tcpmessage(char *readbuffer, MESSAGE *msg, int message_index, int logic_timer)
 {
   int i;
-  char *trash;
+  char trash[MAXCHAR];
 
   strcpy(readbuffer, "SMESSAGES\n");
 
@@ -184,13 +190,11 @@ void tcpmessage(char *readbuffer, MESSAGE *msg, int message_index, int logic_tim
       strcat(readbuffer, ";");
       strcat(readbuffer, msg[i].text);
       strcat(readbuffer, "\n");
-      printf("%s", readbuffer);
     }
   }
-
-  printf("%s\n", readbuffer);
 }
 
+//Counts the number of servers connected through TCP in the server list (servlist[]);
 void count_connected(SERVER *servlist, int *num_connected, int num_servers)
 {
   int i;
